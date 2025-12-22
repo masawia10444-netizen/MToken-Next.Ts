@@ -1,11 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // สั่งให้ข้ามการเช็ค ESLint ตอน Build
+  // ย้ายมาตรงนี้ครับ (บรรทัดบนสุด หรือระดับเดียวกับ output)
+  basePath: '/test5',
+
   eslint: {
     ignoreDuringBuilds: true,
-    basePath: '/test5v2',
+    // ลบบรรทัด basePath ตรงนี้ออก
   },
-  // สั่งให้ข้ามการเช็ค TypeScript Error ตอน Build
   typescript: {
     ignoreBuildErrors: true,
   },

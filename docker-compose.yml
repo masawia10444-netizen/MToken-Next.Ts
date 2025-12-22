@@ -6,7 +6,7 @@ services:
     container_name: mtoken-next-v2
     restart: always
     ports:
-      - "1041:3000"
+      - "1040:3000"
     env_file:
       - .env
     depends_on:
