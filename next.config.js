@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // ย้ายมาตรงนี้ครับ (บรรทัดบนสุด หรือระดับเดียวกับ output)
-  basePath: '/test5',
+  assetPrefix: '/test5',
 
   eslint: {
     ignoreDuringBuilds: true,
