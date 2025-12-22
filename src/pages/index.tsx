@@ -71,7 +71,7 @@ export default function Home() {
     const payload = { ...regForm }; // รวมข้อมูลจากรัฐ + ข้อมูลใหม่ใน Form
 
     try {
-      const res = await fetch('/api/user/register', {
+      const res = await fetch('test5/api/user/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
