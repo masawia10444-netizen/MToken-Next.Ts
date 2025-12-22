@@ -1,186 +1,201 @@
-import { useState, useEffect } from 'react';
-import Head from 'next/head';
-import { UserData } from '../types';
+import { useState, useEffect } from "react";
+import Head from "next/head";
+import { useRouter } from "next/router";
+import axios from "axios";
 
-declare global {
-  interface Window { czpSdk: any; }
+// กำหนด Interface ของข้อมูล User
+interface UserData {
+  citizen_id: string;
+  first_name_th: string;
+  last_name_th: string;
+  mobile_number?: string;
+  address?: string;
 }
 
 export default function Home() {
-  // State
-  const [view, setView] = useState<'login' | 'processing' | 'register' | 'dashboard'>('login');
-  const [loadingMsg, setLoadingMsg] = useState('กำลังตรวจสอบข้อมูล...');
-  const [appId, setAppId] = useState('');
-  const [mToken, setMToken] = useState('');
+  const router = useRouter();
   
-  // Data State
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [regForm, setRegForm] = useState<any>({});
+  // States สำหรับเก็บค่าต่างๆ
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  
+  // State สำหรับเก็บข้อมูลแบบฟอร์ม (ดึงมาจาก mToken หรือกรอกเพิ่ม)
+  const [formData, setFormData] = useState<UserData>({
+    citizen_id: "",
+    first_name_th: "",
+    last_name_th: "",
+    mobile_number: "",
+    address: "",
+  });
 
-  // Auto-Run Logic
+  // 1. useEffect: ทำงานตอนเปิดหน้าเว็บ เพื่อเช็ค mToken ใน URL
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    let foundAppId = params.get('appId');
-    let foundMToken = params.get('mToken');
+    if (!router.isReady) return;
 
-    if (!foundAppId && typeof window !== 'undefined' && window.czpSdk) {
-      try { foundAppId = window.czpSdk.getAppId(); } catch (e) {}
+    // สมมติว่ารับค่ามาจาก Query Param (หรือจะดึงจาก localStorage ก็ได้)
+    const { mToken, appID } = router.query;
+
+    if (mToken) {
+      checkToken(mToken as string);
     }
+  }, [router.isReady, router.query]);
 
-    if (foundAppId) setAppId(foundAppId);
-    if (foundMToken) setMToken(foundMToken);
-
-    if (foundAppId && foundMToken) {
-      handleLogin(foundAppId, foundMToken);
-    }
-  }, []);
-
-  const handleLogin = async (appIdInput: string, mTokenInput: string) => {
-    setView('processing');
-    setLoadingMsg('กำลังตรวจสอบ Token...');
-
+  // 2. ฟังก์ชันเช็ค Token กับ Backend
+  const checkToken = async (token: string) => {
+    setIsLoading(true);
     try {
-      const res = await fetch('test5/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appId: appIdInput, mToken: mTokenInput })
+      // ✅ จุดที่ 1: ต้องมี /test5 นำหน้า API
+      const res = await axios.post("/test5/api/auth/login", {
+        mToken: token,
       });
-      const result = await res.json();
 
-      if (result.status === 'found') {
-        setUserData(result.data);
-        setView('dashboard');
-      } else if (result.status === 'new_user') {
-        setRegForm(result.data); // เก็บข้อมูลรัฐไว้ใช้ตอน Register
-        setView('register');
-      } else {
-        alert('Login Error: ' + result.message);
-        setView('login');
+      if (res.data.status === "success") {
+        // ถ้ามีข้อมูล User กลับมา ให้เอามาใส่ใน Form
+        const userData = res.data.data;
+        setFormData({
+            citizen_id: userData.citizen_id || "",
+            first_name_th: userData.first_name_th || "",
+            last_name_th: userData.last_name_th || "",
+            mobile_number: userData.mobile_number || "", // เบอร์อาจจะยังไม่มี
+            address: userData.address || "" // ที่อยู่อาจจะยังไม่มี
+        });
+        
+        // เช็คว่า User คนนี้ลงทะเบียนหรือยัง (สมมติว่า backend ส่ง flag มาบอก)
+        if (userData.is_registered) {
+            setIsRegistered(true);
+        }
       }
-    } catch (e: any) {
-      alert('Network Error: ' + e.message);
-      setView('login');
+    } catch (error) {
+      console.error("Login Error:", error);
+      setErrorMsg("ไม่สามารถยืนยันตัวตนได้ หรือ Token หมดอายุ");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const submitRegister = async (e: React.FormEvent) => {
+  // 3. ฟังก์ชันกดปุ่ม "ลงทะเบียนสมาชิก" (ที่เป็นปัญหาอยู่)
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoadingMsg('กำลังบันทึกข้อมูล...');
-    // setView('processing'); // ถ้าอยากให้ขึ้น Loading
-
-    const payload = { ...regForm }; // รวมข้อมูลจากรัฐ + ข้อมูลใหม่ใน Form
+    setIsLoading(true);
+    setErrorMsg("");
 
     try {
-      const res = await fetch('/test5/api/user/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      // ---------------------------------------------------------
+      // ❌ ของเดิมที่ Error: axios.post('/api/user/register', ...)
+      // ✅ ของใหม่ที่ถูกต้อง: ต้องเติม /test5 เข้าไปข้างหน้า
+      // ---------------------------------------------------------
+      const res = await axios.post("/test5/api/user/register", {
+        citizen_id: formData.citizen_id,
+        first_name_th: formData.first_name_th,
+        last_name_th: formData.last_name_th,
+        mobile_number: formData.mobile_number,
+        address: formData.address,
       });
-      const result = await res.json();
 
-      if (result.status === 'success') {
-        alert('ลงทะเบียนสำเร็จ!');
-        setUserData(payload);
-        setView('dashboard');
-      } else {
-        alert('บันทึกไม่ผ่าน: ' + result.message);
+      if (res.status === 200 || res.data.status === "success") {
+        alert("ลงทะเบียนสำเร็จเรียบร้อย!");
+        setIsRegistered(true); // เปลี่ยนหน้าจอเป็นหน้า Profile
       }
-    } catch (e: any) {
-      alert('Error: ' + e.message);
+
+    } catch (error: any) {
+      console.error("Register Error:", error);
+      // แสดง Error ที่ชัดเจน
+      const message = error.response?.data?.message || error.message || "เกิดข้อผิดพลาดในการลงทะเบียน";
+      alert(`Error: ${message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light" style={{ fontFamily: 'Sarabun, sans-serif' }}>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <Head>
-        <title>Citizen Digital ID</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+        <title>Biza Test 5</title>
       </Head>
 
-      <div className="card border-0 shadow-lg" style={{ maxWidth: '500px', width: '100%', borderRadius: '20px', overflow: 'hidden' }}>
-        
-        {/* Header */}
-        <div className="text-white text-center p-4" style={{ background: 'linear-gradient(135deg, #0f172a, #2563eb)' }}>
-          <i className="fa-solid fa-shield-halved fa-3x mb-2"></i>
-          <h4 className="fw-bold m-0">ระบบยืนยันตัวตน</h4>
-          <small className="opacity-75">Next.js TypeScript Edition</small>
-        </div>
+      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <h1 className="text-2xl font-bold text-center mb-6 text-blue-800">
+            ระบบยืนยันตัวตน
+        </h1>
 
-        <div className="p-4 bg-white">
-          
-          {/* 1. Login View */}
-          {view === 'login' && (
-            <div>
-              <div className="mb-3">
-                <label className="fw-bold">App ID</label>
-                <input type="text" className="form-control" value={appId} onChange={e => setAppId(e.target.value)} />
-              </div>
-              <div className="mb-3">
-                <label className="fw-bold">mToken</label>
-                <textarea className="form-control" rows={3} value={mToken} onChange={e => setMToken(e.target.value)}></textarea>
-              </div>
-              <button onClick={() => handleLogin(appId, mToken)} className="btn btn-primary w-100 py-2">เข้าสู่ระบบ</button>
+        {isLoading && <p className="text-center text-gray-500">กำลังโหลด...</p>}
+        {errorMsg && <p className="text-center text-red-500 mb-4">{errorMsg}</p>}
+
+        {!isLoading && !isRegistered && (
+          <form onSubmit={handleRegister}>
+            <div className="bg-blue-50 p-3 rounded mb-4 text-center text-sm text-blue-700">
+                ไม่พบข้อมูล กรุณาลงทะเบียน
             </div>
-          )}
 
-          {/* 2. Processing */}
-          {view === 'processing' && (
-            <div className="text-center py-5">
-              <div className="spinner-border text-primary mb-3"></div>
-              <p className="text-muted">{loadingMsg}</p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">เลขบัตร (Locked)</label>
+              <input
+                type="text"
+                value={formData.citizen_id}
+                readOnly
+                className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2"
+              />
             </div>
-          )}
 
-          {/* 3. Register View */}
-          {view === 'register' && (
-            <form onSubmit={submitRegister}>
-              <div className="alert alert-info text-center"><small>ไม่พบข้อมูล กรุณาลงทะเบียน</small></div>
-              <div className="mb-2">
-                <label className="small text-muted">เลขบัตร (Locked)</label>
-                <input type="text" className="form-control bg-light" value={regForm.citizenId || ''} readOnly />
-              </div>
-              <div className="row mb-2">
-                <div className="col">
-                  <input type="text" className="form-control bg-light" value={regForm.firstName || ''} readOnly />
+            <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">ชื่อ</label>
+                    <input 
+                        type="text" 
+                        value={formData.first_name_th} 
+                        readOnly 
+                        className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2"
+                    />
                 </div>
-                <div className="col">
-                  <input type="text" className="form-control bg-light" value={regForm.lastName || ''} readOnly />
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">นามสกุล</label>
+                    <input 
+                        type="text" 
+                        value={formData.last_name_th} 
+                        readOnly 
+                        className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2"
+                    />
                 </div>
-              </div>
-              <div className="mb-2">
-                <label className="fw-bold">เบอร์โทรศัพท์</label>
-                <input type="tel" className="form-control" required 
-                  value={regForm.mobile || ''} 
-                  onChange={e => setRegForm({...regForm, mobile: e.target.value})} 
-                />
-              </div>
-              <div className="mb-3">
-                <label className="fw-bold">ที่อยู่</label>
-                <textarea className="form-control" rows={2} 
-                  value={regForm.additionalInfo || ''}
-                  onChange={e => setRegForm({...regForm, additionalInfo: e.target.value})}
-                ></textarea>
-              </div>
-              <button type="submit" className="btn btn-success w-100 py-2">ลงทะเบียนสมาชิก</button>
-            </form>
-          )}
+            </div>
 
-          {/* 4. Dashboard */}
-          {view === 'dashboard' && userData && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์</label>
+              <input
+                type="text"
+                value={formData.mobile_number}
+                onChange={(e) => setFormData({...formData, mobile_number: e.target.value})}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                required
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700">ที่อยู่</label>
+              <textarea
+                value={formData.address}
+                onChange={(e) => setFormData({...formData, address: e.target.value})}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                rows={3}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-green-700 text-white py-2 px-4 rounded-md hover:bg-green-800 transition duration-200"
+            >
+              ลงทะเบียนสมาชิก
+            </button>
+          </form>
+        )}
+
+        {isRegistered && (
             <div className="text-center">
-              <div className="mb-3 text-success display-1"><i className="fa-solid fa-circle-check"></i></div>
-              <h4>ยินดีต้อนรับ, {userData.firstName}</h4>
-              <p className="text-muted">{userData.citizenId}</p>
-              <div className="card bg-light p-3 text-start mb-3">
-                <small>เบอร์โทร: {userData.mobile || '-'}</small><br/>
-                <small>ข้อมูลเพิ่ม: {userData.additionalInfo || '-'}</small>
-              </div>
-              <button onClick={() => window.location.reload()} className="btn btn-outline-secondary w-100">ออกจากระบบ</button>
+                <p className="text-green-600 text-lg font-bold">ลงทะเบียนเรียบร้อยแล้ว!</p>
+                <p className="text-gray-600 mt-2">ยินดีต้อนรับคุณ {formData.first_name_th}</p>
             </div>
-          )}
-
-        </div>
+        )}
       </div>
     </div>
   );
