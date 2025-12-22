@@ -1,11 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ย้ายมาตรงนี้ครับ (บรรทัดบนสุด หรือระดับเดียวกับ output)
-  assetPrefix: '/test5',
+  // ✅ เอาบรรทัดนี้กลับมาครับ! (เพื่อให้ App รู้จักคำว่า /test5)
+  basePath: '/test5', 
+
+  // assetPrefix ไม่ต้องใส่ก็ได้ครับ (ปกติ basePath จะจัดการให้เอง)
+  // assetPrefix: '/test5', 
 
   eslint: {
     ignoreDuringBuilds: true,
-    // ลบบรรทัด basePath ตรงนี้ออก
   },
   typescript: {
     ignoreBuildErrors: true,
