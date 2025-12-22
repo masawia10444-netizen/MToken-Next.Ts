@@ -15,7 +15,7 @@ interface UserData {
 export default function Home() {
   const router = useRouter();
   
-  // ✅ ดึงค่า Prefix จาก .env
+  // ✅ ดึงค่า Prefix จาก .env (ถ้าไม่มีจะใช้ค่าว่าง)
   const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '';
 
   const [isLoading, setIsLoading] = useState(false);
@@ -40,36 +40,23 @@ export default function Home() {
     if (mToken) {
       // แปลงให้เป็น String แน่นอน (เผื่อมันมาเป็น Array)
       const tokenStr = Array.isArray(mToken) ? mToken[0] : mToken;
-      console.log("📌 Token from URL:", tokenStr); // เช็คว่ามีค่าไหม
+      console.log("📌 Token found:", tokenStr); 
       checkToken(tokenStr);
-    } else {
-        console.log("⚠️ No mToken found in URL");
     }
   }, [router.isReady, router.query]);
 
-  // 2. ฟังก์ชันตรวจสอบ Token
+  // 2. ฟังก์ชันตรวจสอบ Token (แก้ไขจุดนี้ครับ!)
   const checkToken = async (token: string) => {
     setIsLoading(true);
     setErrorMsg(""); 
 
     try {
-      const apiUrl = `${API_PREFIX}/api/auth/login`;
+      console.log(`🚀 Checking token at: ${API_PREFIX}/api/auth/login`);
       
-      // ✅ Payload: ส่งไปทั้ง mToken และ token (กันเหนียว เผื่อหลังบ้านใช้ชื่ออื่น)
-      const payload = { 
-          mToken: token,        // ชื่อมาตรฐาน
-          token: token,         // เผื่อใช้ชื่อสั้น
-          code: token,          // เผื่อใช้ชื่อ code (ตาม OAuth)
-          authorization: token, // เผื่อใช้ชื่อเต็ม
-          data: token           // เผื่อห่อมาใน data
-      };
-      console.log(`🚀 Sending Request to: ${apiUrl}`);
-      console.log("📦 Payload:", payload); // ดูตรงนี้ใน F12 ว่าส่งอะไรไป
-      
-      const res = await axios.post(apiUrl, payload, {
-          headers: {
-              'Content-Type': 'application/json'
-          }
+      // ✅ กลับสู่สามัญ: ส่งแค่ mToken ตัวเดียวโดดๆ 
+      // ไม่ต้องใส่ headers หรือตัวแปรอื่น Backend จะได้ไม่งง
+      const res = await axios.post(`${API_PREFIX}/api/auth/login`, {
+        mToken: token
       });
 
       console.log("✅ Response:", res.data);
@@ -93,9 +80,9 @@ export default function Home() {
       }
 
     } catch (error: any) {
-      console.error("❌ Login Error Full:", error);
+      console.error("❌ Login Error:", error);
       
-      // แกะ Error จาก Server
+      // แกะ Error จาก Server มาแสดง
       const serverMsg = error.response?.data?.message || 
                         error.response?.data?.error || 
                         error.message || 
@@ -114,6 +101,7 @@ export default function Home() {
     setErrorMsg("");
 
     try {
+      // ✅ ยิง API ลงทะเบียน (มี Prefix)
       const res = await axios.post(`${API_PREFIX}/api/user/register`, {
         citizen_id: formData.citizen_id,
         first_name_th: formData.first_name_th,
@@ -140,7 +128,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
       <Head>
-        <title>ระบบยืนยันตัวตน (Debug Mode)</title>
+        <title>ระบบยืนยันตัวตน</title>
       </Head>
 
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
@@ -168,7 +156,7 @@ export default function Home() {
         {isLoading && (
             <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
-                <p className="mt-2 text-gray-500 text-sm">กรุณารอสักครู่ ระบบกำลังดึงข้อมูล...</p>
+                <p className="mt-2 text-gray-500 text-sm">กำลังตรวจสอบข้อมูล...</p>
             </div>
         )}
 
