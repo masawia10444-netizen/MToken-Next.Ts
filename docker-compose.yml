@@ -1,26 +1,46 @@
 version: '3.8'
 
 services:
-  app-v2:
-    build: .
-    container_name: mtoken-next-v2
+  # ------------------------------------
+  # 1. ส่วนของ Frontend (Next.js)
+  # ------------------------------------
+  app:
+    container_name: mtoken-next-app
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: always
     ports:
-      - "1040:3000"
+      - "1040:3000" # เปิด Port 1040 ออกข้างนอก (ตามที่นายต้องการ)
     env_file:
-      - .env
+      - .env        # โหลดค่าจาก .env เข้าไป (เช่น NEXT_PUBLIC_..., DB_HOST)
     depends_on:
-      - db-v2
+      - db          # รอให้ Database รันเสร็จก่อนค่อยรัน App
+    networks:
+      - mtoken-network
 
-  mtoken-db-v2:
+  # ------------------------------------
+  # 2. ส่วนของ Database (PostgreSQL)
+  # ------------------------------------
+  db:
     image: postgres:15-alpine
-    container_name: mtoken-db-v2
+    container_name: mtoken-db-v2  # ✅ ชื่อนี้ต้องตรงกับ DB_HOST ในไฟล์ .env เป๊ะๆ
     restart: always
-    # 🔥 ดึงค่าจาก .env เหมือนกัน (พวก user/pass/db name)
     env_file:
-      - .env
+      - .env        # โหลด User/Pass/DB Name จากไฟล์ .env
     volumes:
-      - pgdata-v2:/var/lib/postgresql/data
+      - pgdata-v2:/var/lib/postgresql/data # เก็บข้อมูลถาวร (ลบ Container ข้อมูลไม่หาย)
+    ports:
+      - "5432:5432" # เปิด Port ให้ DBeaver เข้ามาได้ (ระวังชนกับ DB ตัวอื่นในเครื่อง)
+    networks:
+      - mtoken-network
 
+# ------------------------------------
+# 3. Network & Volumes (ตั้งค่าระบบ)
+# ------------------------------------
 volumes:
-  pgdata-v2:
+  pgdata-v2: # ชื่อ Volume สำหรับเก็บข้อมูล Database
+
+networks:
+  mtoken-network: # สร้างวง Network ส่วนตัวให้ App กับ DB คุยกันรู้เรื่อง
+    driver: bridge
