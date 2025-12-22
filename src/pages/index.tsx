@@ -15,8 +15,7 @@ interface UserData {
 export default function Home() {
   const router = useRouter();
   
-  // ✅ ดึงค่า Prefix จาก .env (ถ้าไม่มีจะใช้ค่าว่าง)
-  // ตัวแปรนี้จะช่วยให้ URL ถูกต้องเสมอ เช่น /test5/api/...
+  // ✅ ดึงค่า Prefix จาก .env
   const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '';
 
   const [isLoading, setIsLoading] = useState(false);
@@ -31,37 +30,51 @@ export default function Home() {
     address: "",
   });
 
-  // 1. ทำงานเมื่อเปิดหน้าเว็บ: เช็คว่ามี mToken ส่งมาใน URL หรือไม่
+  // 1. ตรวจสอบ mToken เมื่อ URL พร้อม
   useEffect(() => {
     if (!router.isReady) return;
     
-    // ดึงค่า mToken จาก URL (เช่น ?mToken=xyz...)
+    // ดึงค่า mToken จาก URL
     const { mToken } = router.query;
 
     if (mToken) {
-      // ถ้ามี Token ให้เรียกฟังก์ชันตรวจสอบ
-      checkToken(mToken as string);
+      // แปลงให้เป็น String แน่นอน (เผื่อมันมาเป็น Array)
+      const tokenStr = Array.isArray(mToken) ? mToken[0] : mToken;
+      console.log("📌 Token from URL:", tokenStr); // เช็คว่ามีค่าไหม
+      checkToken(tokenStr);
+    } else {
+        console.log("⚠️ No mToken found in URL");
     }
   }, [router.isReady, router.query]);
 
-  // 2. ฟังก์ชันตรวจสอบ Token (ยิงไปหา Backend)
+  // 2. ฟังก์ชันตรวจสอบ Token
   const checkToken = async (token: string) => {
     setIsLoading(true);
-    setErrorMsg(""); // เคลียร์ Error เก่าก่อน
+    setErrorMsg(""); 
 
     try {
-      console.log(`Checking token at: ${API_PREFIX}/api/auth/login`);
+      const apiUrl = `${API_PREFIX}/api/auth/login`;
       
-      const res = await axios.post(`${API_PREFIX}/api/auth/login`, {
-        mToken: token,
+      // ✅ Payload: ส่งไปทั้ง mToken และ token (กันเหนียว เผื่อหลังบ้านใช้ชื่ออื่น)
+      const payload = { 
+          mToken: token,
+          token: token 
+      };
+
+      console.log(`🚀 Sending Request to: ${apiUrl}`);
+      console.log("📦 Payload:", payload); // ดูตรงนี้ใน F12 ว่าส่งอะไรไป
+      
+      const res = await axios.post(apiUrl, payload, {
+          headers: {
+              'Content-Type': 'application/json'
+          }
       });
 
-      console.log("Login Response:", res.data);
+      console.log("✅ Response:", res.data);
 
       if (res.data.status === "success" || res.data.code === "200" || res.status === 200) {
-        const userData = res.data.data || res.data; // รองรับ Structure ข้อมูลหลายแบบ
+        const userData = res.data.data || res.data;
         
-        // อัปเดตข้อมูลลงใน Form
         setFormData({
             citizen_id: userData.citizen_id || "",
             first_name_th: userData.first_name_th || "",
@@ -70,20 +83,17 @@ export default function Home() {
             address: userData.address || "" 
         });
         
-        // ถ้า Backend บอกว่าเคยลงทะเบียนแล้ว ให้ข้ามไปหน้าสำเร็จเลย
         if (userData.is_registered) {
             setIsRegistered(true);
         }
       } else {
-        // กรณี Server ตอบ 200 แต่ Status เป็น Fail
         setErrorMsg(res.data.message || "ยืนยันตัวตนไม่สำเร็จ (Unknown Status)");
       }
 
     } catch (error: any) {
-      console.error("Login Error Full:", error);
+      console.error("❌ Login Error Full:", error);
       
-      // 🔥 ไฮไลท์สำคัญ: แกะ Error จริงๆ ออกมาโชว์
-      // ถ้า Database พัง มันจะฟ้องตรงนี้ว่า "relation users does not exist"
+      // แกะ Error จาก Server
       const serverMsg = error.response?.data?.message || 
                         error.response?.data?.error || 
                         error.message || 
@@ -102,7 +112,6 @@ export default function Home() {
     setErrorMsg("");
 
     try {
-      // ยิง API ลงทะเบียน (อย่าลืม Prefix)
       const res = await axios.post(`${API_PREFIX}/api/user/register`, {
         citizen_id: formData.citizen_id,
         first_name_th: formData.first_name_th,
@@ -138,7 +147,6 @@ export default function Home() {
         </h1>
         <p className="text-center text-xs text-gray-400 mb-6">Backend: {API_PREFIX || 'Root'}</p>
 
-        {/* ส่วนแสดง Error แบบชัดเจน */}
         {errorMsg && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
                 <div className="flex">
@@ -158,7 +166,7 @@ export default function Home() {
         {isLoading && (
             <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
-                <p className="mt-2 text-gray-500 text-sm">กำลังเชื่อมต่อระบบ...</p>
+                <p className="mt-2 text-gray-500 text-sm">กรุณารอสักครู่ ระบบกำลังดึงข้อมูล...</p>
             </div>
         )}
 
@@ -166,7 +174,7 @@ export default function Home() {
           <form onSubmit={handleRegister}>
             <div className="bg-blue-50 p-3 rounded mb-4 text-center text-sm text-blue-700">
                 {!formData.citizen_id 
-                    ? "กรุณารอสักครู่ ระบบกำลังดึงข้อมูล..." 
+                    ? "สถานะ: รอรับข้อมูล Token..." 
                     : "ตรวจสอบข้อมูลและลงทะเบียน"
                 }
             </div>
