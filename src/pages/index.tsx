@@ -15,12 +15,14 @@ interface UserData {
 export default function Home() {
   const router = useRouter();
   
-  // States สำหรับเก็บค่าต่างๆ
+  // ✅ ดึงค่า Prefix จาก .env มาใช้ (เช่น /test5)
+  // ถ้าลืมตั้งค่า มันจะเป็นค่าว่าง '' (ก็ยังทำงานได้ถ้าอยู่ root)
+  const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '';
+
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   
-  // State สำหรับเก็บข้อมูลแบบฟอร์ม (ดึงมาจาก mToken หรือกรอกเพิ่ม)
   const [formData, setFormData] = useState<UserData>({
     citizen_id: "",
     first_name_th: "",
@@ -29,39 +31,35 @@ export default function Home() {
     address: "",
   });
 
-  // 1. useEffect: ทำงานตอนเปิดหน้าเว็บ เพื่อเช็ค mToken ใน URL
+  // 1. เช็ค mToken เมื่อหน้าเว็บโหลด
   useEffect(() => {
     if (!router.isReady) return;
-
-    // สมมติว่ารับค่ามาจาก Query Param (หรือจะดึงจาก localStorage ก็ได้)
-    const { mToken, appID } = router.query;
+    const { mToken } = router.query;
 
     if (mToken) {
       checkToken(mToken as string);
     }
   }, [router.isReady, router.query]);
 
-  // 2. ฟังก์ชันเช็ค Token กับ Backend
+  // 2. ฟังก์ชันเช็ค Token
   const checkToken = async (token: string) => {
     setIsLoading(true);
     try {
-      // ✅ จุดที่ 1: ต้องมี /test5 นำหน้า API
-      const res = await axios.post("/test5/api/auth/login", {
+      // ✅ ใช้ API_PREFIX แทนการเขียน /test5 ตรงๆ
+      const res = await axios.post(`${API_PREFIX}/api/auth/login`, {
         mToken: token,
       });
 
       if (res.data.status === "success") {
-        // ถ้ามีข้อมูล User กลับมา ให้เอามาใส่ใน Form
         const userData = res.data.data;
         setFormData({
             citizen_id: userData.citizen_id || "",
             first_name_th: userData.first_name_th || "",
             last_name_th: userData.last_name_th || "",
-            mobile_number: userData.mobile_number || "", // เบอร์อาจจะยังไม่มี
-            address: userData.address || "" // ที่อยู่อาจจะยังไม่มี
+            mobile_number: userData.mobile_number || "", 
+            address: userData.address || "" 
         });
         
-        // เช็คว่า User คนนี้ลงทะเบียนหรือยัง (สมมติว่า backend ส่ง flag มาบอก)
         if (userData.is_registered) {
             setIsRegistered(true);
         }
@@ -74,14 +72,15 @@ export default function Home() {
     }
   };
 
-  // 3. ฟังก์ชันกดปุ่ม "ลงทะเบียนสมาชิก" (ที่เป็นปัญหาอยู่)
+  // 3. ฟังก์ชันลงทะเบียน
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMsg("");
 
     try {
-      const res = await axios.post("/test5/api/user/register", {
+      // ✅ ใช้ API_PREFIX ตรงนี้ด้วย สบายใจหายห่วง
+      const res = await axios.post(`${API_PREFIX}/api/user/register`, {
         citizen_id: formData.citizen_id,
         first_name_th: formData.first_name_th,
         last_name_th: formData.last_name_th,
@@ -91,12 +90,11 @@ export default function Home() {
 
       if (res.status === 200 || res.data.status === "success") {
         alert("ลงทะเบียนสำเร็จเรียบร้อย!");
-        setIsRegistered(true); // เปลี่ยนหน้าจอเป็นหน้า Profile
+        setIsRegistered(true); 
       }
 
     } catch (error: any) {
       console.error("Register Error:", error);
-      // แสดง Error ที่ชัดเจน
       const message = error.response?.data?.message || error.message || "เกิดข้อผิดพลาดในการลงทะเบียน";
       alert(`Error: ${message}`);
     } finally {
@@ -112,7 +110,7 @@ export default function Home() {
 
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
         <h1 className="text-2xl font-bold text-center mb-6 text-blue-800">
-            ระบบยืนยันตัวตน V1.0
+            ระบบยืนยันตัวตน
         </h1>
 
         {isLoading && <p className="text-center text-gray-500">กำลังโหลด...</p>}
