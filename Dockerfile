@@ -1,23 +1,27 @@
-# ใช้ Node.js เวอร์ชันเล็กเบา
-FROM node:18-alpine
+# 1. ใช้ Node Image ตัวเล็ก (Alpine)
+FROM node:18-alpine AS builder
 
-# สร้างโฟลเดอร์ทำงาน
+# 2. กำหนด Working Directory
 WORKDIR /app
 
-# ก๊อปปี้ไฟล์ Config ต่างๆ
-COPY package*.json ./
+# 3. Copy ไฟล์ Package เพื่อ Install Dependencies ก่อน (ช่วยเรื่อง Cache)
+COPY package.json package-lock.json* ./
 
-# ติดตั้ง Library
-RUN npm install --production
+# 4. Install Dependencies
+# ใช้ --legacy-peer-deps เพื่อลดปัญหา version ชนกัน
+RUN npm install --legacy-peer-deps
 
-# ก๊อปปี้โค้ดทั้งหมด
+# 5. Copy Code ทั้งหมดเข้าไป
 COPY . .
 
-# สร้าง Build สำหรับ Production
+# 6. สร้าง Build (ตอนนี้จะไม่พังเพราะ ESLint/TS แล้ว เพราะเราแก้ config แล้ว)
 RUN npm run build
 
-# เปิด Port 3000 (ภายใน Container)
+# --- Setup สำหรับ Run ---
 EXPOSE 3000
 
-# เริ่มรัน Next.js
+ENV PORT=3000
+# ถ้าใน Code มีการเรียกใช้ Env Var อื่นๆ อย่าลืมใส่ใน Docker Compose หรือ Server ด้วย
+
+# คำสั่ง Run (ใช้ start ปกติ)
 CMD ["npm", "start"]
