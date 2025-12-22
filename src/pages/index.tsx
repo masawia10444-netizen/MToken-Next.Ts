@@ -3,7 +3,6 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
 
-// Interface สำหรับข้อมูล User
 interface UserData {
   citizen_id: string;
   first_name_th: string;
@@ -15,13 +14,16 @@ interface UserData {
 export default function Home() {
   const router = useRouter();
   
-  // ✅ ดึงค่า Prefix จาก .env (ถ้าไม่มีจะใช้ค่าว่าง)
+  // Prefix API
   const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '';
 
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   
+  // เก็บ appId ไว้ใช้ตอนกดลงทะเบียนด้วย (ถ้าจำเป็น)
+  const [currentAppId, setCurrentAppId] = useState("");
+
   const [formData, setFormData] = useState<UserData>({
     citizen_id: "",
     first_name_th: "",
@@ -30,96 +32,134 @@ export default function Home() {
     address: "",
   });
 
-  // 1. ตรวจสอบ mToken เมื่อ URL พร้อม
+  // 1. รอ URL พร้อม แล้วดึงค่า appId และ mToken
   useEffect(() => {
     if (!router.isReady) return;
     
-    // ดึงค่า mToken จาก URL
-    const { mToken } = router.query;
+    // ✅ ดึงทั้ง mToken และ appId
+    const { mToken, appId } = router.query;
 
-    if (mToken) {
-      // แปลงให้เป็น String แน่นอน (เผื่อมันมาเป็น Array)
+    if (mToken && appId) {
       const tokenStr = Array.isArray(mToken) ? mToken[0] : mToken;
-      console.log("📌 Token found:", tokenStr); 
-      checkToken(tokenStr);
+      const appIdStr = Array.isArray(appId) ? appId[0] : appId;
+      
+      console.log("📌 Params Found:", { mToken: tokenStr, appId: appIdStr });
+      setCurrentAppId(appIdStr); // เก็บใส่ State ไว้
+      
+      // ส่งไปเช็คทั้งคู่
+      checkToken(tokenStr, appIdStr);
+    } else {
+       console.log("⚠️ Missing Parameters: need both mToken and appId");
+       if(!mToken && !appId) {
+           // กรณีเปิดเว็บมาเฉยๆ ไม่มี param อะไรเลย
+       } else {
+           setErrorMsg("ข้อมูลไม่ครบ: ต้องการ appId และ mToken ใน URL");
+       }
     }
   }, [router.isReady, router.query]);
 
-  // 2. ฟังก์ชันตรวจสอบ Token (แก้ไขจุดนี้ครับ!)
-  const checkToken = async (token: string) => {
+  // 2. ฟังก์ชัน Login (ปรับปรุงใหม่!)
+  const checkToken = async (token: string, appId: string) => {
     setIsLoading(true);
     setErrorMsg(""); 
 
     try {
-      console.log(`🚀 Checking token at: ${API_PREFIX}/api/auth/login`);
+      console.log(`🚀 Sending Login Request...`);
       
-      // ✅ กลับสู่สามัญ: ส่งแค่ mToken ตัวเดียวโดดๆ 
-      // ไม่ต้องใส่ headers หรือตัวแปรอื่น Backend จะได้ไม่งง
-      const res = await axios.post(`${API_PREFIX}/api/auth/login`, {
+      // ✅ Payload ที่ถูกต้อง (ตามโค้ดเก่าที่ Success)
+      const payload = { 
+        appId: appId,
         mToken: token
+      };
+
+      const res = await axios.post(`${API_PREFIX}/api/auth/login`, payload, {
+          headers: { 'Content-Type': 'application/json' }
       });
 
       console.log("✅ Response:", res.data);
 
-      if (res.data.status === "success" || res.data.code === "200" || res.status === 200) {
-        const userData = res.data.data || res.data;
+      // Backend เก่าอาจจะส่ง status: 'found' หรือ 'success'
+      if (res.data.status === "success" || res.data.status === "found" || res.status === 200) {
         
-        setFormData({
-            citizen_id: userData.citizen_id || "",
-            first_name_th: userData.first_name_th || "",
-            last_name_th: userData.last_name_th || "",
-            mobile_number: userData.mobile_number || "", 
-            address: userData.address || "" 
-        });
-        
-        if (userData.is_registered) {
-            setIsRegistered(true);
+        // กรณีเจอข้อมูล User (found)
+        if(res.data.data) {
+             const userData = res.data.data;
+             setFormData({
+                citizen_id: userData.citizen_id || userData.citizenId || "",
+                first_name_th: userData.first_name_th || userData.firstName || "",
+                last_name_th: userData.last_name_th || userData.lastName || "",
+                mobile_number: userData.mobile_number || userData.mobile || "", 
+                address: userData.address || userData.additionalInfo || "" 
+            });
+            
+            // เช็คว่าต้องลงทะเบียนใหม่ หรือ Login ได้เลย
+            if (userData.is_registered || res.data.status === 'found') {
+                 // ถ้า Backend บอกว่า found แปลว่ามีข้อมูลแล้ว
+                 // แต่ใน Test 5 เราอาจจะอยากให้โชว์หน้าฟอร์มก่อน หรือจะให้ข้ามไปเลยก็ได้
+                 // อันนี้ผมตั้งให้มันโชว์ข้อมูลในฟอร์มก่อน (แต่ User อาจจะแก้ไขไม่ได้เพราะ Locked)
+                 // setIsRegistered(true); // ถ้าอยากให้ข้ามไปหน้า Success เลย ให้เปิดบรรทัดนี้
+            }
         }
+        
+      } else if (res.data.status === "new_user") {
+          // กรณี User ใหม่ (ต้องลงทะเบียน)
+          const newUserData = res.data.data;
+          setFormData({
+            citizen_id: newUserData.citizenId || "",
+            first_name_th: newUserData.firstName || "",
+            last_name_th: newUserData.lastName || "",
+            mobile_number: "",
+            address: ""
+          });
+          // อยู่หน้าฟอร์มปกติ (ถูกต้องแล้ว)
       } else {
-        setErrorMsg(res.data.message || "ยืนยันตัวตนไม่สำเร็จ (Unknown Status)");
+        setErrorMsg(res.data.message || "Login Failed");
       }
 
     } catch (error: any) {
       console.error("❌ Login Error:", error);
-      
-      // แกะ Error จาก Server มาแสดง
-      const serverMsg = error.response?.data?.message || 
-                        error.response?.data?.error || 
-                        error.message || 
-                        "เกิดข้อผิดพลาดในการเชื่อมต่อ Server";
-      
+      const serverMsg = error.response?.data?.message || error.message;
       setErrorMsg(`System Error: ${serverMsg}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 3. ฟังก์ชันกดปุ่มลงทะเบียน
+  // 3. ฟังก์ชันลงทะเบียน
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMsg("");
 
     try {
-      // ✅ ยิง API ลงทะเบียน (มี Prefix)
-      const res = await axios.post(`${API_PREFIX}/api/user/register`, {
-        citizen_id: formData.citizen_id,
+      // ✅ ส่งข้อมูลลงทะเบียน (อาจจะต้องส่ง appId ด้วยไหม? ใส่ไปเผื่อก่อน)
+      const registerPayload = {
+        appId: currentAppId, // เผื่อ Backend ต้องใช้
+        citizen_id: formData.citizen_id, // หรือ citizenId ตาม Backend
+        citizenId: formData.citizen_id,   // ส่งไป 2 ชื่อ กันเหนียว
         first_name_th: formData.first_name_th,
+        firstName: formData.first_name_th,
         last_name_th: formData.last_name_th,
+        lastName: formData.last_name_th,
         mobile_number: formData.mobile_number,
+        mobile: formData.mobile_number,
         address: formData.address,
-      });
+        additionalInfo: formData.address
+      };
+
+      const res = await axios.post(`${API_PREFIX}/api/user/register`, registerPayload);
 
       if (res.status === 200 || res.data.status === "success") {
         alert("ลงทะเบียนสำเร็จเรียบร้อย!");
         setIsRegistered(true); 
+      } else {
+         alert("ลงทะเบียนไม่ผ่าน: " + (res.data.message || "Unknown Error"));
       }
 
     } catch (error: any) {
       console.error("Register Error:", error);
-      const message = error.response?.data?.message || error.message || "เกิดข้อผิดพลาดในการลงทะเบียน";
+      const message = error.response?.data?.message || error.message;
       alert(`Error: ${message}`);
-      setErrorMsg(`Register Failed: ${message}`);
     } finally {
       setIsLoading(false);
     }
@@ -156,7 +196,7 @@ export default function Home() {
         {isLoading && (
             <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
-                <p className="mt-2 text-gray-500 text-sm">กำลังตรวจสอบข้อมูล...</p>
+                <p className="mt-2 text-gray-500 text-sm">กำลังเชื่อมต่อระบบ...</p>
             </div>
         )}
 
@@ -164,7 +204,7 @@ export default function Home() {
           <form onSubmit={handleRegister}>
             <div className="bg-blue-50 p-3 rounded mb-4 text-center text-sm text-blue-700">
                 {!formData.citizen_id 
-                    ? "สถานะ: รอรับข้อมูล Token..." 
+                    ? "สถานะ: รอรับข้อมูล (Token & AppID)..." 
                     : "ตรวจสอบข้อมูลและลงทะเบียน"
                 }
             </div>
@@ -238,7 +278,6 @@ export default function Home() {
                 <div className="text-6xl mb-4">🎉</div>
                 <h2 className="text-2xl font-bold text-green-600 mb-2">ลงทะเบียนสำเร็จ!</h2>
                 <p className="text-gray-600">ยินดีต้อนรับ คุณ{formData.first_name_th}</p>
-                <p className="text-sm text-gray-400 mt-4">คุณสามารถปิดหน้านี้ได้ทันที</p>
             </div>
         )}
       </div>
