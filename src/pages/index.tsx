@@ -81,10 +81,6 @@ export default function Home() {
     setErrorMsg("");
 
     try {
-      // ---------------------------------------------------------
-      // ❌ ของเดิมที่ Error: axios.post('/api/user/register', ...)
-      // ✅ ของใหม่ที่ถูกต้อง: ต้องเติม /test5 เข้าไปข้างหน้า
-      // ---------------------------------------------------------
       const res = await axios.post("/test5/api/user/register", {
         citizen_id: formData.citizen_id,
         first_name_th: formData.first_name_th,
@@ -116,7 +112,7 @@ export default function Home() {
 
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
         <h1 className="text-2xl font-bold text-center mb-6 text-blue-800">
-            ระบบยืนยันตัวตน
+            ระบบยืนยันตัวตน V1.0
         </h1>
 
         {isLoading && <p className="text-center text-gray-500">กำลังโหลด...</p>}
