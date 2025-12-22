@@ -3,7 +3,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
 
-// กำหนด Interface ของข้อมูล User
+// กำหนดโครงสร้างข้อมูล User
 interface UserData {
   citizen_id: string;
   first_name_th: string;
@@ -15,8 +15,8 @@ interface UserData {
 export default function Home() {
   const router = useRouter();
   
-  // ✅ ดึงค่า Prefix จาก .env มาใช้ (เช่น /test5)
-  // ถ้าลืมตั้งค่า มันจะเป็นค่าว่าง '' (ก็ยังทำงานได้ถ้าอยู่ root)
+  // ✅ ไฮไลท์สำคัญ: ดึงค่า Prefix จาก .env มาเก็บไว้ในตัวแปร
+  // ถ้าใน .env เขียนว่า /test5 ตัวแปรนี้ก็จะเป็น /test5
   const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '';
 
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +31,7 @@ export default function Home() {
     address: "",
   });
 
-  // 1. เช็ค mToken เมื่อหน้าเว็บโหลด
+  // 1. ตรวจสอบ mToken เมื่อเปิดหน้าเว็บ
   useEffect(() => {
     if (!router.isReady) return;
     const { mToken } = router.query;
@@ -41,11 +41,11 @@ export default function Home() {
     }
   }, [router.isReady, router.query]);
 
-  // 2. ฟังก์ชันเช็ค Token
+  // 2. ฟังก์ชัน Login (เช็ค Token)
   const checkToken = async (token: string) => {
     setIsLoading(true);
     try {
-      // ✅ ใช้ API_PREFIX แทนการเขียน /test5 ตรงๆ
+      // ✅ เรียกใช้ API แบบมี Prefix
       const res = await axios.post(`${API_PREFIX}/api/auth/login`, {
         mToken: token,
       });
@@ -60,6 +60,7 @@ export default function Home() {
             address: userData.address || "" 
         });
         
+        // ถ้าเคยลงทะเบียนแล้ว ให้ข้ามไปหน้า Success เลย
         if (userData.is_registered) {
             setIsRegistered(true);
         }
@@ -72,14 +73,14 @@ export default function Home() {
     }
   };
 
-  // 3. ฟังก์ชันลงทะเบียน
+  // 3. ฟังก์ชันลงทะเบียน (Handle Register)
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMsg("");
 
     try {
-      // ✅ ใช้ API_PREFIX ตรงนี้ด้วย สบายใจหายห่วง
+      // ✅ เรียกใช้ API แบบมี Prefix (จุดที่เคย Error จะหายไปตรงนี้)
       const res = await axios.post(`${API_PREFIX}/api/user/register`, {
         citizen_id: formData.citizen_id,
         first_name_th: formData.first_name_th,
@@ -105,7 +106,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <Head>
-        <title>Biza Test 5</title>
+        <title>ระบบยืนยันตัวตน (Biza Test 5)</title>
       </Head>
 
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
@@ -119,7 +120,7 @@ export default function Home() {
         {!isLoading && !isRegistered && (
           <form onSubmit={handleRegister}>
             <div className="bg-blue-50 p-3 rounded mb-4 text-center text-sm text-blue-700">
-                ไม่พบข้อมูล กรุณาลงทะเบียน
+                {!formData.citizen_id ? "กรุณารอข้อมูล..." : "ไม่พบข้อมูล กรุณาลงทะเบียน"}
             </div>
 
             <div className="mb-4">
@@ -128,7 +129,7 @@ export default function Home() {
                 type="text"
                 value={formData.citizen_id}
                 readOnly
-                className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2"
+                className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2 text-gray-500"
               />
             </div>
 
@@ -139,7 +140,7 @@ export default function Home() {
                         type="text" 
                         value={formData.first_name_th} 
                         readOnly 
-                        className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2"
+                        className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2 text-gray-500"
                     />
                 </div>
                 <div>
@@ -148,7 +149,7 @@ export default function Home() {
                         type="text" 
                         value={formData.last_name_th} 
                         readOnly 
-                        className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2"
+                        className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2 text-gray-500"
                     />
                 </div>
             </div>
@@ -159,7 +160,8 @@ export default function Home() {
                 type="text"
                 value={formData.mobile_number}
                 onChange={(e) => setFormData({...formData, mobile_number: e.target.value})}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="กรอกเบอร์โทรศัพท์"
                 required
               />
             </div>
@@ -169,15 +171,16 @@ export default function Home() {
               <textarea
                 value={formData.address}
                 onChange={(e) => setFormData({...formData, address: e.target.value})}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
                 rows={3}
+                placeholder="กรอกที่อยู่ปัจจุบัน"
                 required
               />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-green-700 text-white py-2 px-4 rounded-md hover:bg-green-800 transition duration-200"
+              className="w-full bg-green-700 text-white py-2 px-4 rounded-md hover:bg-green-800 transition duration-200 font-semibold"
             >
               ลงทะเบียนสมาชิก
             </button>
@@ -185,9 +188,10 @@ export default function Home() {
         )}
 
         {isRegistered && (
-            <div className="text-center">
-                <p className="text-green-600 text-lg font-bold">ลงทะเบียนเรียบร้อยแล้ว!</p>
-                <p className="text-gray-600 mt-2">ยินดีต้อนรับคุณ {formData.first_name_th}</p>
+            <div className="text-center py-8">
+                <div className="text-5xl mb-4">🎉</div>
+                <p className="text-green-600 text-xl font-bold">ลงทะเบียนเรียบร้อยแล้ว!</p>
+                <p className="text-gray-600 mt-2">ขอบคุณ คุณ{formData.first_name_th}</p>
             </div>
         )}
       </div>
