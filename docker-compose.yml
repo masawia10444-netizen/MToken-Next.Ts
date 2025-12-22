@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app-v2:
+    build: .
+    container_name: mtoken-next-v2
+    restart: always
+    ports:
+      - "1041:3000"
+    env_file:
+      - .env
+    depends_on:
+      - db-v2
+
+  db-v2:
+    image: postgres:15-alpine
+    container_name: mtoken-db-v2
+    restart: always
+    # 🔥 ดึงค่าจาก .env เหมือนกัน (พวก user/pass/db name)
+    env_file:
+      - .env
+    volumes:
+      - pgdata-v2:/var/lib/postgresql/data
+
+volumes:
+  pgdata-v2:
