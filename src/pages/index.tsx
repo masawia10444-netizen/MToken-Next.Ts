@@ -40,7 +40,7 @@ export default function Home() {
     setLoadingMsg('กำลังตรวจสอบ Token...');
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('test5/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appId: appIdInput, mToken: mTokenInput })
