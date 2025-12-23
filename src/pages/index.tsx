@@ -56,7 +56,6 @@ export default function Home() {
         
         const userData = res.data.data;
         if(userData) {
-             // ✅ เก็บ userId เอาไว้ใช้ตอนลงทะเบียน (สำคัญมาก!)
              const uid = userData.user_id || userData.userId || userData.id || "";
              setCurrentUserId(uid);
 
@@ -68,8 +67,9 @@ export default function Home() {
                 address: userData.address || userData.additionalInfo || "" 
             });
             
-            if (res.data.status === 'found' || userData.is_registered) {
-                 // ถ้าเจอแล้วอาจจะให้ข้ามไปได้เลย หรือโชว์ข้อมูล
+            // ✅ แก้แล้ว: ถ้าเป็น User เก่า (found) ให้เด้งไปหน้า Success เลย
+            if (res.data.status === 'found' || userData.is_registered || uid) {
+                 setIsRegistered(true); 
             }
         }
       } else {
