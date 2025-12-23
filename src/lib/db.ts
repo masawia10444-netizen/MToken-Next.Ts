@@ -1,15 +1,21 @@
 import { Pool } from 'pg';
+import { DEFAULTS } from './constants';
 
-// สร้าง Connection Pool เพื่อเชื่อมต่อ Database
+/**
+ * PostgreSQL Connection Pool
+ * Manages database connections for the MToken application
+ */
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
-  host: process.env.DB_HOST || 'localhost', // ใน Docker จะใช้ชื่อ Service (mtoken-db-v2)
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'postgres',
+  user: process.env.DB_USER || DEFAULTS.USER,
+  password: process.env.DB_PASSWORD || DEFAULTS.PASSWORD,
+  host: process.env.DB_HOST || DEFAULTS.HOST,
+  port: parseInt(process.env.DB_PORT || String(DEFAULTS.PORT)),
+  database: process.env.DB_NAME || DEFAULTS.DB,
 });
 
-// ดักจับ Error เผื่อเชื่อมต่อไม่ได้
+/**
+ * Handle unexpected errors on idle connections
+ */
 pool.on('error', (err) => {
   console.error('❌ Unexpected error on idle client', err);
   process.exit(-1);
