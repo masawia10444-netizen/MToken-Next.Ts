@@ -16,12 +16,16 @@ export default function Home() {
   const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX || '';
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false); // สำหรับหน้า Success (จุดพลุ)
-  const [showProfile, setShowProfile] = useState(false);   // ✅ สำหรับหน้า Profile (คนเก่า)
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   
   const [currentUserId, setCurrentUserId] = useState(""); 
   const [currentAppId, setCurrentAppId] = useState("");
+  
+  // ✅ เพิ่ม State สำหรับข้อความแจ้งเตือน
+  const [notifyMessage, setNotifyMessage] = useState("ยินดีต้อนรับเข้าสู่ระบบ!");
+  const [isSending, setIsSending] = useState(false);
 
   const [formData, setFormData] = useState<UserData>({
     citizen_id: "",
@@ -67,11 +71,9 @@ export default function Home() {
                 address: userData.address || userData.additionalInfo || "" 
             });
             
-            // ✅ แก้ไข Logic: ถ้าเป็นคนเก่า (found) ให้ไปหน้า Profile
             if (res.data.status === 'found' || userData.is_registered === true) {
-                 setShowProfile(true); // <--- ไปหน้า Profile แทน
+                 setShowProfile(true); 
             } 
-            // ถ้าเป็น new_user ก็จะหลุดไปโชว์ฟอร์มลงทะเบียนปกติ
         }
       } else {
         setErrorMsg(res.data.message || "Login Failed");
@@ -108,7 +110,7 @@ export default function Home() {
       const res = await axios.post(`${API_PREFIX}/api/user/register`, registerPayload);
 
       if (res.status === 200 || res.data.status === "success") {
-        setIsRegistered(true); // ✅ ถ้าเพิ่งลงทะเบียนเสร็จ ให้โชว์หน้าจุดพลุ
+        setIsRegistered(true); 
       } else {
          alert("ลงทะเบียนไม่ผ่าน: " + (res.data.message || "Unknown Error"));
       }
@@ -122,27 +124,27 @@ export default function Home() {
     }
   };
 
+  // ✅ ฟังก์ชันส่ง Notify (แปลงจากโค้ดเดิม)
   const sendNotify = async () => {
-    // ใช้ Prompt รับข้อความง่ายๆ ไปก่อน
-    const msg = prompt("กรุณาระบุข้อความที่ต้องการส่งแจ้งเตือน:", "ยินดีต้อนรับเข้าสู่ระบบ!");
-    
-    if (!msg) return; // ถ้ากด Cancel หรือไม่พิมพ์ ก็จบ
+    if (!currentUserId) return;
+    setIsSending(true);
 
     try {
-      const res = await axios.post(`${API_PREFIX}/api/notify/send`, {
-        appId: currentAppId,
-        userId: formData.citizen_id, // ส่งเลขบัตรประชาชนไปเป็นเป้าหมาย
-        message: msg
-      });
+        const res = await axios.post(`${API_PREFIX}/api/notify/send`, {
+            appId: currentAppId,
+            userId: currentUserId, // หรือ formData.citizen_id
+            message: notifyMessage
+        });
 
-      if (res.data.success) {
-        alert("✅ ส่งแจ้งเตือนเรียบร้อยแล้ว!");
-      } else {
-        alert("❌ ส่งไม่ผ่าน: " + res.data.message);
-      }
-    } catch (error: any) {
-      console.error("Notify Error:", error);
-      alert("Error Sending Notification");
+        if (res.data.success) {
+            alert("✅ ส่งแจ้งเตือนเรียบร้อย!");
+        } else {
+            alert("❌ ส่งไม่ผ่าน: " + (res.data.message || res.data.error));
+        }
+    } catch (e: any) {
+        alert("Error: " + e.message);
+    } finally {
+        setIsSending(false);
     }
   };
 
@@ -154,7 +156,6 @@ export default function Home() {
 
       <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
         
-        {/* Header โลโก้ */}
         <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-blue-900">
                 ระบบยืนยันตัวตน
@@ -175,28 +176,17 @@ export default function Home() {
             </div>
         )}
 
-        {/* ---------------------------------------------------- */}
-        {/* CASE 1: ฟอร์มลงทะเบียน (สำหรับคนใหม่) */}
-        {/* ---------------------------------------------------- */}
+        {/* ฟอร์มลงทะเบียน */}
         {!isLoading && !isRegistered && !showProfile && (
           <form onSubmit={handleRegister}>
+            {/* ... (ส่วนฟอร์มลงทะเบียน เหมือนเดิม ไม่ได้แก้) ... */}
             <div className="bg-blue-50 p-3 rounded-lg mb-6 text-center text-sm text-blue-800 border border-blue-100">
-                {!formData.citizen_id 
-                    ? "สถานะ: รอรับข้อมูล..." 
-                    : "👋 ไม่พบข้อมูลสมาชิก กรุณาลงทะเบียน"
-                }
+                {!formData.citizen_id ? "สถานะ: รอรับข้อมูล..." : "👋 ไม่พบข้อมูลสมาชิก กรุณาลงทะเบียน"}
             </div>
-
             <div className="mb-4">
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">เลขบัตรประชาชน</label>
-              <input
-                type="text"
-                value={formData.citizen_id}
-                readOnly
-                className="block w-full bg-gray-100 border-gray-200 rounded-lg p-2.5 text-gray-500 text-sm font-mono"
-              />
+              <input type="text" value={formData.citizen_id} readOnly className="block w-full bg-gray-100 border-gray-200 rounded-lg p-2.5 text-gray-500 text-sm font-mono" />
             </div>
-
             <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">ชื่อ</label>
@@ -207,98 +197,59 @@ export default function Home() {
                     <input type="text" value={formData.last_name_th} readOnly className="block w-full bg-gray-100 border-gray-200 rounded-lg p-2.5 text-gray-500 text-sm" />
                 </div>
             </div>
-
             <div className="mb-4">
               <label className="block text-sm font-semibold text-gray-700 mb-1">เบอร์โทรศัพท์</label>
-              <input
-                type="text"
-                value={formData.mobile_number}
-                onChange={(e) => setFormData({...formData, mobile_number: e.target.value})}
-                className="block w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                placeholder="08x-xxx-xxxx"
-                required
-              />
+              <input type="text" value={formData.mobile_number} onChange={(e) => setFormData({...formData, mobile_number: e.target.value})} className="block w-full border border-gray-300 rounded-lg p-2.5" placeholder="08x-xxx-xxxx" required />
             </div>
-
             <div className="mb-6">
               <label className="block text-sm font-semibold text-gray-700 mb-1">ที่อยู่</label>
-              <textarea
-                value={formData.address}
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-                className="block w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                rows={3}
-                placeholder="บ้านเลขที่, ถนน, แขวง/ตำบล..."
-                required
-              />
+              <textarea value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="block w-full border border-gray-300 rounded-lg p-2.5" rows={3} placeholder="บ้านเลขที่..." required />
             </div>
-
-            <button type="submit" className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-200 font-bold shadow-lg shadow-blue-500/30">
-              ลงทะเบียนสมาชิก
-            </button>
+            <button type="submit" className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 transition duration-200 font-bold shadow-lg shadow-blue-500/30">ลงทะเบียนสมาชิก</button>
           </form>
         )}
 
-        {/* ---------------------------------------------------- */}
-        {/* CASE 2: หน้า Success (เพิ่งลงทะเบียนเสร็จ) */}
-        {/* ---------------------------------------------------- */}
+        {/* หน้า Success */}
         {isRegistered && (
             <div className="text-center py-8 animate-fade-in-up">
                 <div className="text-6xl mb-4">🎉</div>
                 <h2 className="text-2xl font-bold text-green-600 mb-2">ลงทะเบียนสำเร็จ!</h2>
                 <p className="text-gray-600 mb-6">ยินดีต้อนรับ คุณ{formData.first_name_th}</p>
-                
-                <button 
-                    onClick={() => { setIsRegistered(false); setShowProfile(true); }}
-                    className="bg-gray-100 text-gray-700 px-6 py-2 rounded-full hover:bg-gray-200 transition font-medium"
-                >
-                    ไปที่หน้าโปรไฟล์ →
-                </button>
+                <button onClick={() => { setIsRegistered(false); setShowProfile(true); }} className="bg-gray-100 text-gray-700 px-6 py-2 rounded-full hover:bg-gray-200 transition font-medium">ไปที่หน้าโปรไฟล์ →</button>
             </div>
         )}
 
-        {/* ---------------------------------------------------- */}
-        {/* CASE 3: หน้า Profile (สำหรับคนเก่า / Login เข้ามา) */}
-        {/* ---------------------------------------------------- */}
+        {/* หน้า Profile + Notification */}
         {showProfile && (
             <div className="text-center">
                 <div className="w-20 h-20 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-bold shadow-lg mb-4">
                     {formData.first_name_th.charAt(0)}
                 </div>
                 
-                <h2 className="text-xl font-bold text-gray-800">
-                    {formData.first_name_th} {formData.last_name_th}
-                </h2>
-                <p className="text-sm text-gray-500 font-mono mt-1">{formData.citizen_id}</p>
-                
-                <div className="mt-3 inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200">
-                    ✓ ยืนยันตัวตนแล้ว
+                <h2 className="text-xl font-bold text-gray-800">{formData.first_name_th} {formData.last_name_th}</h2>
+                <div className="mt-3 inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200">✓ ยืนยันตัวตนแล้ว</div>
+
+                {/* ✅ ส่วนส่งแจ้งเตือน */}
+                <div className="mt-6 bg-yellow-50 rounded-xl p-4 border border-yellow-200 text-left">
+                    <label className="block text-xs font-bold text-yellow-700 uppercase mb-2">📢 ทดสอบส่งแจ้งเตือน</label>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={notifyMessage}
+                            onChange={(e) => setNotifyMessage(e.target.value)}
+                            className="flex-1 text-sm p-2 border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                        />
+                        <button 
+                            onClick={sendNotify}
+                            disabled={isSending}
+                            className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-yellow-600 disabled:opacity-50 transition"
+                        >
+                            {isSending ? '...' : 'ส่ง'}
+                        </button>
+                    </div>
                 </div>
 
-                <div className="mt-6 bg-gray-50 rounded-xl p-4 text-left border border-gray-100">
-                    <div className="mb-3">
-                        <p className="text-xs text-gray-400 uppercase font-bold">เบอร์โทรศัพท์</p>
-                        <p className="text-gray-700 font-medium">{formData.mobile_number || "-"}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-400 uppercase font-bold">ที่อยู่</p>
-                        <p className="text-gray-700 font-medium">{formData.address || "-"}</p>
-                    </div>
-                </div>
-
-                {/* ✅ ปุ่มส่งแจ้งเตือน */}
-                <button 
-                  onClick={sendNotify}
-                  className="mt-4 w-full py-3 bg-yellow-400 text-yellow-900 font-bold rounded-xl hover:bg-yellow-500 transition shadow-md"
-                >
-                  🔔 ทดสอบส่งแจ้งเตือน
-                </button>
-
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="mt-6 w-full py-3 text-red-500 font-semibold hover:bg-red-50 rounded-xl transition"
-                >
-                  ออกจากระบบ
-                </button>
+                <button onClick={() => window.location.reload()} className="mt-6 w-full py-3 text-red-500 font-semibold hover:bg-red-50 rounded-xl transition">ออกจากระบบ</button>
             </div>
         )}
 

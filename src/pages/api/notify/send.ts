@@ -1,60 +1,82 @@
-// ไฟล์: src/pages/api/notify/send.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
+import https from 'https';
+
+// ✅ ฟังก์ชันขอ Token (สูตรของนาย)
+async function getGdxToken() {
+    try {
+        // ใช้ httpsAgent เผื่อไว้กรณีติดปัญหา SSL ใน Docker
+        const agent = new https.Agent({ rejectUnauthorized: false });
+
+        const res = await axios.get(process.env.GDX_AUTH_URL || '', {
+            params: { 
+                ConsumerSecret: process.env.CONSUMER_SECRET, 
+                AgentID: process.env.AGENT_ID 
+            },
+            headers: { 
+                'Consumer-Key': process.env.CONSUMER_KEY, 
+                'Content-Type': 'application/json' 
+            },
+            httpsAgent: agent 
+        });
+        return res.data.Result;
+    } catch (e: any) {
+        console.error("❌ Failed to get GDX Token:", e.message);
+        throw new Error("Cannot get GDX Token");
+    }
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // รับเฉพาะ POST Request เท่านั้น
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method Not Allowed' });
   }
 
-  // ดึงค่าจากหน้าบ้าน (userId คือเลขบัตร หรือ ID ที่ระบบรัฐต้องการ)
   const { appId, userId, message } = req.body;
-
-  if (!userId || !message) {
-    return res.status(400).json({ success: false, message: 'Missing userId or message' });
-  }
-
-  // ✅ ตั้งค่า API ปลายทาง (เช็คจาก Document ของนายอีกทีนะว่าใช่อันนี้ไหม)
-  // ปกติมักจะเป็น: https://api.egov.go.th/ws/dga/czp/v1/notification/push
-  // หรืออาจจะเป็น Endpoint เฉพาะของโครงการนาย
-  const EXTERNAL_API_URL = process.env.DGA_NOTIFY_API_URL || 'https://api.egov.go.th/ws/notification/push';
+  const NOTIFICATION_API_URL = process.env.NOTIFICATION_API_URL || 'https://api.egov.go.th/ws/dga/czp/v1/notification/push';
+  const CONSUMER_KEY = process.env.CONSUMER_KEY || '';
 
   try {
-    console.log(`📨 Sending Notification to User: ${userId}`);
+    // 1. เรียกขอ Token
+    const token = await getGdxToken();
 
-    // ยิงไปหา API รัฐบาล (GDX / DGA)
-    // ตรงนี้ต้องใช้ Key ที่นายเคยถามหา (Consumer Key/Secret)
-    const response = await axios.post(
-      EXTERNAL_API_URL,
-      {
-        CitizenID: userId,          // หรือเป้าหมายที่จะส่ง
-        Message: message,           // ข้อความ
-        AppId: appId || 'MY_APP',   // ชื่อแอพผู้ส่ง
-        // บางทีอาจต้องส่ง Title หรือ Data อื่นๆ ด้วยตาม Spec
-        Title: 'แจ้งเตือนจากระบบ',
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Consumer-Key': process.env.DGA_CONSUMER_KEY || '', // ใส่ Key ใน .env
-          'Token': process.env.DGA_TOKEN || ''                // ถ้ามี Token ก็ใส่ด้วย
-        }
-      }
-    );
+    if (!token) {
+        throw new Error("ไม่ได้รับ Token จาก GDX (Token is empty)");
+    }
 
-    console.log('✅ Notification Sent:', response.data);
-    return res.status(200).json({ success: true, data: response.data });
+    console.log(`📨 Sending notify to: ${userId}`);
 
-  } catch (error: any) {
-    console.error('❌ Notification Error:', error.response?.data || error.message);
+    // 2. เตรียมข้อมูลส่ง Notification
+    const body = { 
+        appId: appId || 'MY_APP', 
+        data: [
+            { 
+                message: message || "Test Message", 
+                userId: userId 
+            }
+        ], 
+        sendDateTime: null 
+    };
+
+    // 3. ยิงไปหา DGA Notification API
+    const agent = new https.Agent({ rejectUnauthorized: false });
     
-    // กรณีทดสอบ (Mock Success) - ถ้า API จริงยังไม่พร้อม ให้เปิดบรรทัดล่างนี้เพื่อหลอกว่าผ่าน
-    // return res.status(200).json({ success: true, message: '(Mock) Sent Successfully' });
+    const notifyRes = await axios.post(NOTIFICATION_API_URL, body, { 
+        headers: { 
+            'Consumer-Key': CONSUMER_KEY, 
+            'Token': token, 
+            'Content-Type': 'application/json' 
+        },
+        httpsAgent: agent 
+    });
 
-    return res.status(500).json({ 
+    console.log("✅ Notify Result:", notifyRes.data);
+    res.status(200).json({ success: true, result: notifyRes.data });
+
+  } catch (e: any) {
+    console.error('❌ Notify Error:', e.response?.data || e.message);
+    res.status(500).json({ 
         success: false, 
-        message: error.response?.data?.message || 'Failed to send notification' 
+        message: e.response?.data?.message || e.message 
     });
   }
 }
