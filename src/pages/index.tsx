@@ -122,6 +122,30 @@ export default function Home() {
     }
   };
 
+  const sendNotify = async () => {
+    // ใช้ Prompt รับข้อความง่ายๆ ไปก่อน
+    const msg = prompt("กรุณาระบุข้อความที่ต้องการส่งแจ้งเตือน:", "ยินดีต้อนรับเข้าสู่ระบบ!");
+    
+    if (!msg) return; // ถ้ากด Cancel หรือไม่พิมพ์ ก็จบ
+
+    try {
+      const res = await axios.post(`${API_PREFIX}/api/notify/send`, {
+        appId: currentAppId,
+        userId: formData.citizen_id, // ส่งเลขบัตรประชาชนไปเป็นเป้าหมาย
+        message: msg
+      });
+
+      if (res.data.success) {
+        alert("✅ ส่งแจ้งเตือนเรียบร้อยแล้ว!");
+      } else {
+        alert("❌ ส่งไม่ผ่าน: " + res.data.message);
+      }
+    } catch (error: any) {
+      console.error("Notify Error:", error);
+      alert("Error Sending Notification");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
       <Head>
@@ -261,11 +285,19 @@ export default function Home() {
                     </div>
                 </div>
 
+                {/* ✅ ปุ่มส่งแจ้งเตือน */}
                 <button 
-                    onClick={() => window.location.reload()}
-                    className="mt-6 w-full py-3 text-red-500 font-semibold hover:bg-red-50 rounded-xl transition"
+                  onClick={sendNotify}
+                  className="mt-4 w-full py-3 bg-yellow-400 text-yellow-900 font-bold rounded-xl hover:bg-yellow-500 transition shadow-md"
                 >
-                    ออกจากระบบ
+                  🔔 ทดสอบส่งแจ้งเตือน
+                </button>
+
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-6 w-full py-3 text-red-500 font-semibold hover:bg-red-50 rounded-xl transition"
+                >
+                  ออกจากระบบ
                 </button>
             </div>
         )}
