@@ -52,6 +52,7 @@ export default function Home() {
       const payload = { appId: appId, mToken: token };
       const res = await axios.post(`${API_PREFIX}/api/auth/login`, payload);
 
+      // เช็คว่ายิง API ติดไหม
       if (res.data.status === "success" || res.data.status === "found" || res.data.status === "new_user" || res.status === 200) {
 
         const userData = res.data.data;
@@ -59,6 +60,7 @@ export default function Home() {
           const uid = userData.user_id || userData.userId || userData.id || "";
           setCurrentUserId(uid);
 
+          // เอาข้อมูลมาพ่นใส่ฟอร์มรอไว้ก่อน
           setFormData({
             citizen_id: userData.citizen_id || userData.citizenId || "",
             first_name_th: userData.first_name_th || userData.firstName || "",
@@ -67,10 +69,13 @@ export default function Home() {
             address: userData.address || userData.additionalInfo || ""
           });
 
-          // ✅ แก้แล้ว: ถ้าเป็น User เก่า (found) ให้เด้งไปหน้า Success เลย
-          if (res.data.status === 'found' || userData.is_registered || uid) {
-            setIsRegistered(true);
+          // 🛑 แก้ไขจุดสำคัญตรงนี้! 🛑
+          // ต้องเช็คให้ชัวร์ว่า Backend บอกว่า "เจอแล้ว" (found) จริงๆ ถึงจะให้ผ่าน
+          // ห้ามใช้แค่ if(uid) เพราะ User ใหม่ก็มี uid จากรัฐส่งมาเหมือนกัน
+          if (res.data.status === 'found' || userData.is_registered === true) {
+            setIsRegistered(true); // เฉพาะคนเก่าเท่านั้น ถึงจะข้ามไปหน้า Success
           }
+          // กรณีอื่น (new_user) มันจะไม่เข้า if นี้ -> จะโชว์ฟอร์มให้กดลงทะเบียน (ถูกต้องแล้ว!)
         }
       } else {
         setErrorMsg(res.data.message || "Login Failed");
