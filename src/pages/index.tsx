@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
+// ✅ Import ไอคอนเข้ามาใช้งาน
+import { UserIcon, ShieldCheckIcon, BellAlertIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/solid';
 
 // Interface
 interface UserData {
@@ -150,7 +152,8 @@ export default function Home() {
         <title>ระบบยืนยันตัวตนดิจิทัล</title>
       </Head>
 
-      <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-white/50 relative overflow-hidden transition-all duration-500 hover:shadow-indigo-200/50">
+      {/* ✅ ปรับ Padding ให้ Responsive: p-6 สำหรับมือถือ, sm:p-8 สำหรับจอใหญ่ */}
+      <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-white/50 relative overflow-hidden transition-all duration-500 hover:shadow-indigo-200/50">
         
         {/* Decorative Circles */}
         <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
@@ -158,10 +161,10 @@ export default function Home() {
 
         {/* Header */}
         <div className="relative text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl shadow-lg mb-4 transform rotate-3">
-                🆔
+            <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl mx-auto flex items-center justify-center text-white shadow-lg mb-4 transform rotate-3">
+                <ShieldCheckIcon className="w-8 h-8" />
             </div>
-            <h1 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+            <h1 className="text-2xl sm:text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
                 ยืนยันตัวตน
             </h1>
             <p className="text-sm text-gray-500 mt-2 font-medium">Citizen Digital ID Verification</p>
@@ -246,14 +249,14 @@ export default function Home() {
         {isRegistered && (
             <div className="text-center py-10 animate-fadeIn">
                 <div className="text-7xl mb-6 animate-bounce">🎉</div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">ลงทะเบียนสำเร็จ!</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">ลงทะเบียนสำเร็จ!</h2>
                 <p className="text-gray-500 mb-8">ยินดีต้อนรับเข้าสู่ครอบครัวดิจิทัล</p>
                 <div className="bg-green-50 rounded-2xl p-4 mb-8 border border-green-100 inline-block w-full">
                     <p className="text-sm text-green-700 font-medium">คุณ {formData.first_name_th} {formData.last_name_th}</p>
                 </div>
                 <button onClick={() => { setIsRegistered(false); setShowProfile(true); }} 
-                    className="w-full bg-white text-gray-700 border border-gray-200 py-3 rounded-xl font-bold hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm">
-                    เข้าสู่หน้าโปรไฟล์ →
+                    className="w-full bg-white text-gray-700 border border-gray-200 py-3 rounded-xl font-bold hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm flex items-center justify-center gap-2">
+                    เข้าสู่หน้าโปรไฟล์ <ArrowRightOnRectangleIcon className="w-5 h-5" />
                 </button>
             </div>
         )}
@@ -262,13 +265,14 @@ export default function Home() {
         {showProfile && (
             <div className="relative animate-fadeIn">
                 <div className="text-center mb-8">
-                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full mx-auto flex items-center justify-center text-white text-4xl font-bold shadow-xl ring-4 ring-white mb-4">
-                        {formData.first_name_th.charAt(0)}
+                    {/* ✅ เปลี่ยนจากตัวอักษรเป็นไอคอน User */}
+                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full mx-auto flex items-center justify-center text-white shadow-xl ring-4 ring-white mb-4">
+                        <UserIcon className="w-12 h-12" />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800">{formData.first_name_th} {formData.last_name_th}</h2>
                     <p className="text-gray-400 text-sm font-mono mt-1">{formData.citizen_id}</p>
                     <div className="mt-3 inline-flex items-center px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200 shadow-sm">
-                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                        <ShieldCheckIcon className="w-4 h-4 mr-1" />
                         ยืนยันตัวตนแล้ว (Verified)
                     </div>
                 </div>
@@ -287,8 +291,8 @@ export default function Home() {
 
                 {/* Notification Tester */}
                 <div className="bg-yellow-50 rounded-2xl p-5 border border-yellow-200/60 shadow-sm">
-                    <label className="block text-xs font-bold text-yellow-700 uppercase mb-3 flex items-center">
-                        🔔 ทดสอบระบบแจ้งเตือน (Notification)
+                    <label className="block text-xs font-bold text-yellow-700 uppercase mb-3 flex items-center gap-2">
+                        <BellAlertIcon className="w-4 h-4" /> ทดสอบระบบแจ้งเตือน (Notification)
                     </label>
                     <div className="flex gap-2">
                         <input type="text" value={notifyMsg} onChange={(e) => setNotifyMsg(e.target.value)}
@@ -302,8 +306,8 @@ export default function Home() {
                 </div>
 
                 <button onClick={() => window.location.reload()} 
-                    className="mt-8 w-full py-4 text-red-500 font-bold hover:bg-red-50 rounded-xl transition border border-transparent hover:border-red-100">
-                    ออกจากระบบ
+                    className="mt-8 w-full py-4 text-red-500 font-bold hover:bg-red-50 rounded-xl transition border border-transparent hover:border-red-100 flex items-center justify-center gap-2">
+                    <ArrowRightOnRectangleIcon className="w-5 h-5" /> ออกจากระบบ
                 </button>
             </div>
         )}
